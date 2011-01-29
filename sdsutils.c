@@ -55,7 +55,8 @@ sds sdsdecrypt(sds z,sds key) {
     }
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
-    strlcpy(len_f,z,9);
+    memset(len_f,0,9);
+    strncpy(len_f,z,8);
     memcpy(iv,z+8,8);
     sds s = sdsnewlen(z+16,sdslen(z)-16);
     int len = strtol(len_f,(char **)NULL,10);
