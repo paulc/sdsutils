@@ -1,7 +1,7 @@
 
 CC = gcc
 AR = ar
-CFLAGS = -Wall -O2 -std=c99 -D_POSIX_SOURCE
+CFLAGS = -Wall -O2 -std=gnu99
 LDFLAGS = 
 DEBUG ?= -g -rdynamic -ggdb
 
