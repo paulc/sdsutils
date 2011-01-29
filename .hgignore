@@ -1,0 +1,10 @@
+syntax: glob
+
+*.swp
+*~
+*.o
+*.a
+.DS_Store
+re
+readfile
+encrypt
