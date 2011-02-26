@@ -20,6 +20,16 @@ int char_count(char *s, char c) {
     }
     return count;
 }
+
+int sdsstartswith(sds s,sds prefix) {
+    int l1 = sdslen(s);
+    int l2 = sdslen(prefix);
+    if (l1 < l2) {
+        return 0;
+    }
+    return (memcmp(s,prefix,l2) == 0);
+}
+
 int sdscount(sds s,char c) {
 	int len = sdslen(s), count = 0; 
     for (int j = 0; j < len; j++) {

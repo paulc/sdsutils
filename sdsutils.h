@@ -10,6 +10,7 @@
 
 int char_count(char *s, char c);
 int sdscount(sds s,char c);
+int sdsstartswith(sds s,sds prefix);
 int64_t sdsgetint64(sds s);
 sds sdscatint64(sds s,int64_t l);
 sds sdsread(FILE *fp,size_t nbyte);
