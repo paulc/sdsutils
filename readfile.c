@@ -10,6 +10,7 @@
 int main(int argc, char** argv) {
     FILE *f = stdin;
     int repr = 0;
+    int unrepr = 0;
     int sha256 = 0;
     long n = 0;
     int i = 1;
@@ -18,6 +19,8 @@ int main(int argc, char** argv) {
     while (i < argc && argv[i][0] == '-') {
         if (strncmp(argv[i],"-r",3)==0) {
             repr = 1;
+        } else if (strncmp(argv[i],"-u",3)==0) {
+            unrepr = 1;
         } else if (strncmp(argv[i],"-f",3)==0) {
             if ((f = fopen(argv[++i],"r")) == NULL) {
                 perror("Error opening file");
@@ -28,7 +31,7 @@ int main(int argc, char** argv) {
         } else if (strncmp(argv[i],"-sha256",8)==0) {
             sha256 = 1;
         } else if (strncmp(argv[i],"-h",3)==0) {
-            printf("Usage: ./readfile [-r] [-sha256] [-n <count>] [-f <file>]\n");
+            printf("Usage: ./readfile [-r] [-u] [-sha256] [-n <count>] [-f <file>]\n");
             exit(1);
         }
         i++;
@@ -38,6 +41,12 @@ int main(int argc, char** argv) {
         data = sdsreadfile(f);
     } else {
         data = sdsread(f,n);
+    }
+
+    if (unrepr) {
+        sds r = sdsunrepr(data);
+        sdsfree(data);
+        data = r;
     }
 
     if (sha256) {

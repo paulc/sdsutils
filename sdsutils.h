@@ -25,6 +25,7 @@ sds sdsdecrypt(sds z,sds key);
 void sdsfreematchres(sds* matches,int count);
 sds sdshex(sds s);
 sds sdsrepr(sds s);
+sds sdsunrepr(sds s);
 void sdsprintrepr(FILE *fp,char *prefix,sds s,char *suffix);
 void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix);
 

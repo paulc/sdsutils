@@ -214,6 +214,49 @@ sds sdshex(sds s) {
     return r;
 }
 
+sds sdsunrepr(sds s) {
+    sds r = sdsempty();
+    int len = sdslen(s);
+    unsigned char c;
+    while(len--) {
+        if (*s == '\\') {
+            s++; len--;
+            switch (*s) {
+                case '\\': r = sdscatlen(r,"\\",1); break;        
+                case '"':  r = sdscatlen(r,"\"",1); break;        
+                case 'n':  r = sdscatlen(r,"\n",1); break;
+                case 'r':  r = sdscatlen(r,"\r",1); break;
+                case 't':  r = sdscatlen(r,"\t",1); break;
+                case 'a':  r = sdscatlen(r,"\a",1); break;
+                case 'b':  r = sdscatlen(r,"\b",1); break;
+                case 'x':  
+                    for (int i=0;i<2;i++) {
+                        c = 0;
+                        s++; len--;
+                        switch (*s) {
+                            case '0': case '1': case '2': case '3': case '4':
+                            case '5': case '6': case '7': case '8': case '9': 
+                                c += (*s - '0') << (i * 4);
+                                break;
+                            case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+                                c += (*s - 'a' + 10) << (i * 4);
+                                break;
+                            case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+                                c += (*s - 'a' + 10) << (i * 4);
+                                break;
+                        }
+                    }
+                    r = sdscatlen(r,&c,1);
+                    break;
+            }
+        } else {
+            r = sdscatlen(r,s,1);
+        }
+        s++;
+    }
+    return r;
+}
+
 sds sdsrepr(sds s) {
     sds r = sdsempty();
     int len = sdslen(s);

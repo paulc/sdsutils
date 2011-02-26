@@ -8,3 +8,4 @@ syntax: glob
 re
 readfile
 encrypt
+int64
