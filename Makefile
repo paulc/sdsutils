@@ -1,28 +1,33 @@
 
-CC = gcc
-AR = ar
-CFLAGS = -Wall -O2 -std=gnu99
+CC ?= gcc
+AR ?= ar
+CFLAGS = -Wall -Werror -O2 -std=gnu99
 LDFLAGS = 
 DEBUG ?= -g -rdynamic -ggdb
 
-OBJ = blowfish.o linenoise.o sds.o zmalloc.o sdsutils.o slre.o 
+OBJ = blowfish.o linenoise.o sds.o zmalloc.o sdsutils.o slre.o sha256.o
 LIB = libsdsutil.a
-PROGS = re readfile encrypt
+PROGS = int64 re readfile encrypt
 
 all : $(PROGS)
 
 # Deps (from 'make dep')
 blowfish.o: blowfish.c blowfish.h
 encrypt.o: encrypt.c sds.h sdsutils.h slre.h
+int64.o: int64.c sds.h sdsutils.h slre.h
 linenoise.o: linenoise.c fmacros.h
 re.o: re.c sds.h sdsutils.h slre.h
 readfile.o: readfile.c sds.h sdsutils.h slre.h
 sds.o: sds.c sds.h zmalloc.h
 sdsutils.o: sdsutils.c sdsutils.h sds.h slre.h blowfish.h zmalloc.h
+sha256.o: sha256.c sha256.h
 slre.o: slre.c slre.h
 zmalloc.o: zmalloc.c config.h
 
 # Targets
+int64 : int64.o $(OBJ)
+	$(CC) -o int64 $(LDFLAGS) $(DEBUG) int64.o $(OBJ)
+
 re : re.o $(OBJ)
 	$(CC) -o re $(LDFLAGS) $(DEBUG) re.o $(OBJ)
 
@@ -44,5 +49,5 @@ dep:
 	$(CC) -MM *.c
 
 clean:
-	rm -rf $(PROGS) $(LIB) *.o *~ readfile re encrypt
+	rm -rf $(PROGS) $(LIB) *.o *~ $(PROGS)
 

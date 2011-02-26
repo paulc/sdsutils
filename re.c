@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
         }
         for (int i=0; i<count; i++) {
             printf("Match %d: ",i);
-            sdsrepr(stdout,"",matches[i],"\n");
+            sdsprintrepr(stdout,"",matches[i],"\n");
         }
         sdsfreematchres(matches,count);
         sdsfree(line);

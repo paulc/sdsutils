@@ -1,10 +1,12 @@
 
 #include "sdsutils.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include "blowfish.h"
 #include "sds.h"
+#include "sha256.h"
 #include "slre.h"
 #include "zmalloc.h"
 
@@ -27,8 +29,38 @@ int sdscount(sds s,char c) {
 	return count;
 }
 
+int64_t sdsgetint64(sds s) {
+    if (sdslen(s) != 8) {
+        return 0;
+    }
+    int64_t n = 0;
+    s += 7;
+    for (int i=0;i<8;i++) {
+        n = (n << 8) + (unsigned char) *s--;
+    }
+    return n;
+}
+
+sds sdscatint64(sds s,int64_t l) {
+    unsigned char c;
+    for (int i=0;i<8;i++) {
+        c = (unsigned char) ((l >> i*8) % 256);
+        s = sdscatlen(s,&c,1);
+    }
+    return s;
+}
+
+sds sdssha256(sds s) {
+    context_sha256_t c;
+    uint8_t digest[32];
+    sha256_starts(&c);
+    sha256_update(&c,(uint8_t *) s,(uint32_t) sdslen(s));
+    sha256_finish(&c,digest);
+    sds d = sdsnewlen(digest,32);
+    return d;
+}
+
 sds sdsencrypt(sds s,sds key,sds iv) {
-    int len = sdslen(s);
     int pad = 0;
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
@@ -36,7 +68,7 @@ sds sdsencrypt(sds s,sds key,sds iv) {
         sdscatlen(iv,"\x00",1);
     }
     sds z = sdsempty();
-    z = sdscatprintf(z,"%08d",len);
+    z = sdscatint64(z,sdslen(s));
     z = sdscatlen(z,iv,8);
     z = sdscatlen(z,s,sdslen(s));
     while ((sdslen(z) % 8) != 0) {
@@ -48,20 +80,19 @@ sds sdsencrypt(sds s,sds key,sds iv) {
 }
 
 sds sdsdecrypt(sds z,sds key) {
-    char len_f[9];
-    u_int8_t iv[8];
     if (sdslen(z) < 24) {
         return sdsempty();
     }
+    sds len_f = sdsnewlen(z,8);
+    sds iv = sdsnewlen(z+8,8);
+    int64_t len = sdsgetint64(len_f);
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
-    memset(len_f,0,9);
-    strncpy(len_f,z,8);
-    memcpy(iv,z+8,8);
     sds s = sdsnewlen(z+16,sdslen(z)-16);
-    int len = strtol(len_f,(char **)NULL,10);
-    blf_cbc_decrypt(&c,iv,(u_int8_t *)s,sdslen(s));
+    blf_cbc_decrypt(&c,(u_int8_t *)iv,(u_int8_t *)s,sdslen(s));
     s = sdsrange(s,0,len-1);
+    sdsfree(len_f);
+    sdsfree(iv);
     return s;
 }
 
@@ -75,6 +106,9 @@ sds sdsread(FILE *fp,size_t nbyte) {
         n = read(fileno(fp),buf,nread);
         if (n == -1) {
             return NULL;
+        }
+        if (n == 0) {
+            break;
         }
         data = sdscatlen(data,buf,n);
         count += n;
@@ -161,12 +195,53 @@ void sdsfreematchres(sds* matches,int count) {
     zfree(matches);
 }
 
-void sdsrepr(FILE *fp,char *prefix,sds s,char *suffix) {
-    sds m = sdsempty();
-    m = sdscatrepr(m,s,sdslen(s));
+sds sdshex(sds s) {
+    sds r = sdsempty();
+    int len = sdslen(s);
+    while(len--) {
+        r = sdscatprintf(r,"%02x",(unsigned char)*s++);
+    }
+    return r;
+}
+
+sds sdsrepr(sds s) {
+    sds r = sdsempty();
+    int len = sdslen(s);
+    while(len--) {
+        switch(*s) {
+            case '\\':
+            case '"':
+                r = sdscatprintf(r,"\\%c",*s);
+                break;
+            case '\n': r = sdscatlen(r,"\\n",2); break;
+            case '\r': r = sdscatlen(r,"\\r",2); break;
+            case '\t': r = sdscatlen(r,"\\t",2); break;
+            case '\a': r = sdscatlen(r,"\\a",2); break;
+            case '\b': r = sdscatlen(r,"\\b",2); break;
+            default:
+                if (isprint(*s))
+                    r = sdscatprintf(r,"%c",*s);
+                else
+                    r = sdscatprintf(r,"\\x%02x",(unsigned char)*s);
+                break;
+        }
+        s++;
+    }
+    return r;
+}
+
+void sdsprintrepr(FILE *fp,char *prefix,sds s,char *suffix) {
+    sds m = sdsrepr(s);
     fputs(prefix,fp);
     fputs(m,fp);
     fputs(suffix,fp);
     sdsfree(m);
 }
 
+void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix) {
+    sds m = sdshex(s);
+    fputs(prefix,fp);
+    fputs(m,fp);
+    fputs(suffix,fp);
+    sdsfree(m);
+}

@@ -6,13 +6,14 @@
 #include "sds.h"
 #include "sdsutils.h"
 
-#define USAGE "Usage: encrypt [-e|-d] [-i] -k <key> | -kf <keyfile>"
+#define USAGE "Usage: encrypt [-e|-d] [-r] [-i] -k <key> | -kf <keyfile>"
 
 int main(int argc, char** argv) {
 
     int i = 1;
     int encrypt = 1;
     int interactive = 0;
+    int repr = 0;
     sds key = NULL;
 
     while (i < argc && argv[i][0] == '-') {
@@ -20,6 +21,8 @@ int main(int argc, char** argv) {
             encrypt = 1;
         } else if (strncmp(argv[i],"-d",3)==0) {
             encrypt = 0;
+        } else if (strncmp(argv[i],"-r",3)==0) {
+            repr = 1;
         } else if (strncmp(argv[i],"-i",3)==0) {
             interactive = 1;
         } else if (strncmp(argv[i],"-k",3)==0) {
@@ -52,6 +55,7 @@ int main(int argc, char** argv) {
             printf("  -e            Encrypt (default)\n");
             printf("  -d            Decrypt\n");
             printf("  -i            Interactive\n");
+            printf("  -r            Escape encrypted data\n");
             printf("  -k <key>      Key\n");
             printf("  -kf <keyfile> Key\n");
             exit(1);
@@ -84,12 +88,12 @@ int main(int argc, char** argv) {
                 exit(1);
             }
             sds z = sdsencrypt(line,key,iv);
-            sdsrepr(stdout,"Data:      ",line,"\n");
-            sdsrepr(stdout,"Key:       ",key,"\n");
-            sdsrepr(stdout,"IV:        ",iv,"\n");
-            sdsrepr(stdout,"Encrypted: ",z,"\n");
+            sdsprintrepr(stdout,"Data:      ",line,"\n");
+            sdsprintrepr(stdout,"Key:       ",key,"\n");
+            sdsprintrepr(stdout,"IV:        ",iv,"\n");
+            sdsprintrepr(stdout,"Encrypted: ",z,"\n");
             sds s = sdsdecrypt(z,key);
-            sdsrepr(stdout,"Decrypted: ",s,(sdscmp(s,line) == 0) ? " - OK\n" : " - Error\n");
+            sdsprintrepr(stdout,"Decrypted: ",s,(sdscmp(s,line) == 0) ? " - OK\n" : " - Error\n");
             sdsfree(iv);
             sdsfree(line);
             sdsfree(z);
@@ -113,9 +117,13 @@ int main(int argc, char** argv) {
         } else {
             z = sdsdecrypt(data,key);
         }
-        if (fwrite(z,1,sdslen(z),stdout) != sdslen(z)) {
-            fprintf(stderr,"Error writing data\n");
-            exit(1);
+        if (repr) {
+            sdsprintrepr(stdout,"",z,"");
+        } else {
+            if (fwrite(z,1,sdslen(z),stdout) != sdslen(z)) {
+                fprintf(stderr,"Error writing data\n");
+                exit(1);
+            }
         }
         sdsfree(data);
         sdsfree(z);
