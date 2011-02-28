@@ -5,7 +5,7 @@ CFLAGS = -Wall -Werror -O2 -std=gnu99
 LDFLAGS = 
 DEBUG ?= -g -rdynamic -ggdb
 
-OBJ = blowfish.o linenoise.o sds.o zmalloc.o sdsutils.o slre.o sha256.o
+OBJ = blowfish.o sds.o zmalloc.o sdsutils.o slre.o sha256.o
 LIB = libsdsutil.a
 PROGS = int64 re readfile encrypt
 

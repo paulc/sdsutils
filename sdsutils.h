@@ -11,8 +11,8 @@
 int char_count(char *s, char c);
 int sdscount(sds s,char c);
 int sdsstartswith(sds s,sds prefix);
-int64_t sdsgetint64(sds s);
-sds sdscatint64(sds s,int64_t l);
+int64_t sdsgetint(sds s,int len);
+sds sdscatint(sds s,int64_t num,int len);
 sds sdsread(FILE *fp,size_t nbyte);
 sds sdsreadfile(FILE *fp);
 sds sdsreaddelim(FILE *fp,char *delim,int len);

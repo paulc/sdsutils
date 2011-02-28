@@ -39,22 +39,22 @@ int sdscount(sds s,char c) {
 	return count;
 }
 
-int64_t sdsgetint64(sds s) {
-    if (sdslen(s) != 8) {
+int64_t sdsgetint(sds s,int len) {
+    if (sdslen(s) < len) {
         return 0;
     }
     int64_t n = 0;
     s += 7;
-    for (int i=0;i<8;i++) {
+    for (int i=0;i<len;i++) {
         n = (n << 8) + (unsigned char) *s--;
     }
     return n;
 }
 
-sds sdscatint64(sds s,int64_t l) {
+sds sdscatint(sds s,int64_t num, int len) {
     unsigned char c;
-    for (int i=0;i<8;i++) {
-        c = (unsigned char) ((l >> i*8) % 256);
+    for (int i=0;i<len;i++) {
+        c = (unsigned char) ((num >> i*8) % 256);
         s = sdscatlen(s,&c,1);
     }
     return s;
@@ -70,38 +70,42 @@ sds sdssha256(sds s) {
     return d;
 }
 
+#define Z_N_LEN 8
+#define Z_IV_LEN  8
+#define Z_HDR_LEN 16
+
 sds sdsencrypt(sds s,sds key,sds iv) {
     int pad = 0;
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
-    while (sdslen(iv) < 8) {
+    while (sdslen(iv) < Z_IV_LEN) {
         sdscatlen(iv,"\x00",1);
     }
     sds z = sdsempty();
-    z = sdscatint64(z,sdslen(s));
-    z = sdscatlen(z,iv,8);
+    z = sdscatint(z,sdslen(s),Z_N_LEN);
+    z = sdscatlen(z,iv,Z_IV_LEN);
     z = sdscatlen(z,s,sdslen(s));
-    while ((sdslen(z) % 8) != 0) {
+    while (((sdslen(z)-Z_HDR_LEN) % 8) != 0) {
         sdscatlen(z,"\x00",1);
         pad++;
     }
-    blf_cbc_encrypt(&c,(u_int8_t *)iv,(u_int8_t *)z+16,sdslen(s)+pad);
+    blf_cbc_encrypt(&c,(u_int8_t *)iv,(u_int8_t *)z+Z_HDR_LEN,sdslen(s)+pad);
     return z;
 }
 
 sds sdsdecrypt(sds z,sds key) {
-    if (sdslen(z) < 24) {
-        return sdsempty();
+    if (sdslen(z) < Z_HDR_LEN) {
+        return NULL;
     }
-    sds len_f = sdsnewlen(z,8);
-    sds iv = sdsnewlen(z+8,8);
-    int64_t len = sdsgetint64(len_f);
+    int64_t len = sdsgetint(z,Z_N_LEN);
+    sds iv = sdsnewlen(z+Z_N_LEN,Z_IV_LEN);
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
-    sds s = sdsnewlen(z+16,sdslen(z)-16);
-    blf_cbc_decrypt(&c,(u_int8_t *)iv,(u_int8_t *)s,sdslen(s));
-    s = sdsrange(s,0,len-1);
-    sdsfree(len_f);
+    sds s = sdsnewlen(z+Z_HDR_LEN,sdslen(z)-Z_HDR_LEN);
+    if (sdslen(s) > 0) {
+        blf_cbc_decrypt(&c,(u_int8_t *)iv,(u_int8_t *)s,sdslen(s));
+        s = sdsrange(s,0,len-1);
+    }
     sdsfree(iv);
     return s;
 }
@@ -230,19 +234,19 @@ sds sdsunrepr(sds s) {
                 case 'a':  r = sdscatlen(r,"\a",1); break;
                 case 'b':  r = sdscatlen(r,"\b",1); break;
                 case 'x':  
+                    c = 0;
                     for (int i=0;i<2;i++) {
-                        c = 0;
                         s++; len--;
                         switch (*s) {
                             case '0': case '1': case '2': case '3': case '4':
                             case '5': case '6': case '7': case '8': case '9': 
-                                c += (*s - '0') << (i * 4);
+                                c = (c << 4) + (*s - '0');
                                 break;
                             case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-                                c += (*s - 'a' + 10) << (i * 4);
+                                c = (c << 4) + (*s - 'a' + 10);
                                 break;
                             case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-                                c += (*s - 'a' + 10) << (i * 4);
+                                c = (c << 4) + (*s - 'A' + 10);
                                 break;
                         }
                     }
@@ -252,6 +256,10 @@ sds sdsunrepr(sds s) {
         } else {
             r = sdscatlen(r,s,1);
         }
+
+        sds x = sdshex(r);
+        sdsfree(x);
+
         s++;
     }
     return r;
