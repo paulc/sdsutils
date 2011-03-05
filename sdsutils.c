@@ -44,7 +44,7 @@ int64_t sdsgetint(sds s,int len) {
         return 0;
     }
     int64_t n = 0;
-    s += 7;
+    s += len - 1;
     for (int i=0;i<len;i++) {
         n = (n << 8) + (unsigned char) *s--;
     }
