@@ -20,6 +20,8 @@ sds sdsreadline(FILE *fp,const char *prompt);
 sds *sdsmatchre(sds s,struct slre *slre,int ncap,int *count);
 sds *sdsmatch(sds s,char *re,int *count);
 sds sdssha256(sds s);
+sds sdscompress(sds s);
+sds sdsdecompress(sds s);
 sds sdsencrypt(sds s,sds key,sds iv);
 sds sdsdecrypt(sds z,sds key);
 void sdsfreematchres(sds* matches,int count);

@@ -12,6 +12,8 @@ int main(int argc, char** argv) {
     int repr = 0;
     int unrepr = 0;
     int sha256 = 0;
+    int compress = 0;
+    int decompress = 0;
     long n = 0;
     int i = 1;
     sds data;
@@ -28,10 +30,25 @@ int main(int argc, char** argv) {
             }
         } else if (strncmp(argv[i],"-n",3)==0) {
             n = strtol(argv[++i],(char **)NULL,10);
+        } else if (strncmp(argv[i],"-c",3)==0) {
+            compress = 1;
+        } else if (strncmp(argv[i],"-d",3)==0) {
+            decompress = 1;
         } else if (strncmp(argv[i],"-sha256",8)==0) {
             sha256 = 1;
         } else if (strncmp(argv[i],"-h",3)==0) {
-            printf("Usage: ./readfile [-r] [-u] [-sha256] [-n <count>] [-f <file>]\n");
+            printf("Usage: ./readfile [-r|-u] [-c|-d] [-sha256] [-n <count>] [-f <file>]\n");
+            printf("\n");
+            printf("       Read data from stdin & write to stdout (possibly transforming)\n");
+            printf("\n");
+            printf("       -r           : Quote output using sdsrepr\n");
+            printf("       -u           : Unquote input using sdsunrepr\n");
+            printf("       -c           : Compress output using lzf\n");
+            printf("       -d           : Decompress input using lzf\n");
+            printf("       -sha256      : Return SHA256 of input data\n");
+            printf("       -n <count>   : Read <count> bytes from stdin|file\n");
+            printf("       -f <file>    : Read from <file> rather than stdin\n");
+            printf("\n");
             exit(1);
         }
         i++;
@@ -48,6 +65,22 @@ int main(int argc, char** argv) {
         sds r = sdsunrepr(data);
         sdsfree(data);
         data = r;
+    }
+
+    if (compress) {
+        sds z = sdscompress(data);
+        if (z != NULL) {
+            sdsfree(data);
+            data = z;
+        }
+    }
+
+    if (decompress) {
+        sds z = sdsdecompress(data);
+        if (z != NULL) {
+            sdsfree(data);
+            data = z;
+        }
     }
 
     if (sha256) {

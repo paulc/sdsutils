@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "blowfish.h"
+#include "lzf.h"
 #include "sds.h"
 #include "sha256.h"
 #include "slre.h"
@@ -58,6 +59,30 @@ sds sdscatint(sds s,int64_t num, int len) {
         s = sdscatlen(s,&c,1);
     }
     return s;
+}
+
+sds sdscompress(sds s) {
+    unsigned int out_len = sdslen(s);
+    void *out = zmalloc(out_len);
+    unsigned int n = lzf_compress(s,sdslen(s),out,out_len);
+    sds d = NULL;
+    if (n > 0) {
+        d = sdsnewlen(out,n);
+    }
+    zfree(out);
+    return d;
+}
+
+sds sdsdecompress(sds s) {
+    unsigned int out_len = sdslen(s) * 10;
+    void *out = zmalloc(out_len);
+    unsigned int n = lzf_decompress(s,sdslen(s),out,out_len);
+    sds d = NULL;
+    if (n > 0) {
+        d = sdsnewlen(out,n);
+    }
+    zfree(out);
+    return d;
 }
 
 sds sdssha256(sds s) {
