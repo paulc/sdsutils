@@ -222,8 +222,8 @@ sds sdsunrepr(sds s) {
     sds r = sdsempty();
     int len = sdslen(s);
     unsigned char c;
-    while(len--) {
-        if (*s == '\\') {
+    while(len-- > 0) {
+        if (*s == '\\' && len > 0) {
             s++; len--;
             switch (*s) {
                 case '\\': r = sdscatlen(r,"\\",1); break;        
@@ -256,10 +256,6 @@ sds sdsunrepr(sds s) {
         } else {
             r = sdscatlen(r,s,1);
         }
-
-        sds x = sdshex(r);
-        sdsfree(x);
-
         s++;
     }
     return r;

@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
         data = sdsread(f,n);
     }
 
+
     if (unrepr) {
         sds r = sdsunrepr(data);
         sdsfree(data);
@@ -51,7 +52,7 @@ int main(int argc, char** argv) {
 
     if (sha256) {
         sds digest = sdssha256(data);
-        sdsprinthex(stdout,"",digest,"\n");
+        sdsprinthex(stdout,"SHA256: ",digest,"\n");
         sdsfree(digest);
     } else if (repr) {
         sdsprintrepr(stdout,"",data,"");
