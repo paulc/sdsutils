@@ -1,4 +1,5 @@
 
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,12 +8,29 @@
 #include "sds.h"
 #include "sdsutils.h"
 
-#define USAGE "\nUsage: readfile [-r|-u] [-c|-d] [-sha256] [-n <count>] [-z|-Z] [-k <key>|-kf <keyfile>] [-f <file>]\n" \
-              "       readfile -h\n\n" \
+#define USAGE "Usage: readfile [-f <file>] [-n <count>] [-r|-u] [-c|-d] [-z|-Z] [-s] [-k <key>|-K <keyfile>]\n" \
+              "       readfile [--long-options]\n" \
+              "       readfile [-h|--help]\n" \
+              "\n" \
               "       Read data from stdin & write to stdout (possibly transforming)\n"
 
+#define HELP  "           -f,--file <file>        : Read from <file> rather than stdin\n" \
+              "           -n,--count <count>      : Read <count> bytes from stdin|file\n" \
+              "           -r,--repr               : Quote output using sdsrepr\n" \
+              "           -u,--unrepr             : Unquote input using sdsunrepr\n" \
+              "           -c,--compress           : Compress output using lzf\n" \
+              "           -d,--decompress         : Decompress input using lzf\n" \
+              "           -e,--encrypt            : Encrypt data\n" \
+              "           -d,--decrypt            : Decrypt data\n" \
+              "           -k,--key <key>          : Key (unsafe)\n" \
+              "           -K,--keyfile <keyfile>  : Read key from file\n" \
+              "           -s,--digest             : Return digest (SHA256) of input data\n" \
+              "           -h,--help               : Print help\n"
+
 int main(int argc, char** argv) {
+
     FILE *f = stdin;
+    int ch = 0;
     int repr = 0;
     int unrepr = 0;
     int sha256 = 0;
@@ -21,77 +39,86 @@ int main(int argc, char** argv) {
     int encrypt = 0;
     int decrypt = 0;
     long n = 0;
-    int i = 1;
+    FILE *kf;
     sds data = NULL;
     sds key = NULL;
 
-    while (i < argc && argv[i][0] == '-') {
-        if (strncmp(argv[i],"-r",3)==0) {
-            repr = 1;
-        } else if (strncmp(argv[i],"-u",3)==0) {
-            unrepr = 1;
-        } else if (strncmp(argv[i],"-f",3)==0) {
-            if ((f = fopen(argv[++i],"r")) == NULL) {
-                perror("Error opening file");
-                exit(1);
-            }
-        } else if (strncmp(argv[i],"-n",3)==0) {
-            n = strtol(argv[++i],(char **)NULL,10);
-        } else if (strncmp(argv[i],"-c",3)==0) {
-            compress = 1;
-        } else if (strncmp(argv[i],"-d",3)==0) {
-            decompress = 1;
-        } else if (strncmp(argv[i],"-z",3)==0) {
-            encrypt = 1;
-        } else if (strncmp(argv[i],"-Z",3)==0) {
-            decrypt = 1;
-        } else if (strncmp(argv[i],"-k",3)==0) {
-            if (++i >= argc) {
-                fprintf(stderr,USAGE);
-                exit(1);
-            }
-            key = sdsnew(argv[i]);
-        } else if (strncmp(argv[i],"-kf",4)==0) {
-            if (++i >= argc) {
-                fprintf(stderr,USAGE);
-                exit(1);
-            }
-            FILE *kf;
-            if ((kf = fopen(argv[i],"r")) == NULL) {
-                perror("Unable to read keyfile");
-                exit(1);
-            }
-            if ((key = sdsreadfile(kf)) == NULL) {
-                perror("Unable to read keydata");
-                sdsfree(key);
-                exit(1);
-            }
-            fclose(kf);
-        } else if (strncmp(argv[i],"-sha256",8)==0) {
-            sha256 = 1;
-        } else if (strncmp(argv[i],"-h",3)==0) {
-            printf(USAGE);
-            printf("\n");
-            printf("       -r             : Quote output using sdsrepr\n");
-            printf("       -u             : Unquote input using sdsunrepr\n");
-            printf("       -c             : Compress output using lzf\n");
-            printf("       -d             : Decompress input using lzf\n");
-            printf("       -z             : Encrypt data\n");
-            printf("       -Z             : Decrypt data\n");
-            printf("       -k <key>       : Key (unsafe)\n");
-            printf("       -kf <keyfile>  : Read key from file\n");
-            printf("       -Z             : Decrypt data (requires -k/-kf)\n");
-            printf("       -sha256        : Return SHA256 of input data\n");
-            printf("       -n <count>     : Read <count> bytes from stdin|file\n");
-            printf("       -f <file>      : Read from <file> rather than stdin\n");
-            printf("\n");
-            exit(1);
-        }
-        i++;
-    }
+    static struct option longopts[] = {
+        { "file",       required_argument,  NULL, 'f' },
+        { "count",      required_argument,  NULL, 'n' },
+        { "repr",       no_argument,        NULL, 'r' },
+        { "unrepr",     no_argument,        NULL, 'u' },
+        { "compress",   no_argument,        NULL, 'c' },
+        { "decompress", no_argument,        NULL, 'd' },
+        { "encrypt",    no_argument,        NULL, 'z' },
+        { "decrypt",    no_argument,        NULL, 'Z' },
+        { "key",        required_argument,  NULL, 'k' },
+        { "keyfile",    required_argument,  NULL, 'K' },
+        { "digest",     no_argument,        NULL, 's' },
+        { "help",       no_argument,        NULL, 'h' }
+    };
 
-    // fprintf(stderr,">>> repr=%d unrepr=%d sha256=%d compress=%d decompress=%d encrypt=%d decrypt=%d\n",
-    //            repr,unrepr,sha256,compress,decompress,encrypt,decrypt);
+    while ((ch = getopt_long(argc, argv, "f:n:rucdzZkKsh", longopts, NULL)) != -1) {
+        switch(ch) {
+            case 'f':
+                if ((f = fopen(optarg,"r")) == NULL) {
+                    perror("Error opening file");
+                    exit(1);
+                }
+                break;
+            case 'n':
+                if ((n = strtol(optarg,(char **) NULL,10)) == 0) {
+                    perror("Invalid value");
+                    exit(1);
+                }
+                break;
+            case 'r':
+                repr = 1;
+                break;
+            case 'u':
+                unrepr = 1;
+                break;
+            case 'c':
+                compress = 1;
+                break;
+            case 'd':
+                decompress = 1;
+                break;
+            case 'z':
+                encrypt = 1;
+                break;
+            case 'Z':
+                decrypt = 1;
+                break;
+            case 'k':
+                key = sdsnew(optarg);
+                break;
+            case 'K':
+                if ((kf = fopen(optarg,"r")) == NULL) {
+                    perror("Unable to read keyfile");
+                    exit(1);
+                }
+                if ((key = sdsreadfile(kf)) == NULL) {
+                    perror("Unable to read keyfile");
+                    sdsfree(key);
+                    exit(1);
+                }
+                fclose(kf);
+                break;
+            case 's':
+                sha256 = 1;
+                break;
+            case 'h':
+                printf(USAGE);
+                printf("\n");
+                printf(HELP);
+                printf("\n");
+                exit(1);
+        }
+    }
+    
+    fprintf(stderr,">>> repr=%d unrepr=%d sha256=%d compress=%d decompress=%d encrypt=%d decrypt=%d\n",
+                repr,unrepr,sha256,compress,decompress,encrypt,decrypt);
 
     if (n == 0) {
         data = sdsreadfile(f);
