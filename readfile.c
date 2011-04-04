@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
         { "help",       no_argument,        NULL, 'h' }
     };
 
-    while ((ch = getopt_long(argc, argv, "f:n:rucdzZkKsh", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "f:n:rucdzZk:K:sh", longopts, NULL)) != -1) {
         switch(ch) {
             case 'f':
                 if ((f = fopen(optarg,"r")) == NULL) {
@@ -117,8 +117,13 @@ int main(int argc, char** argv) {
         }
     }
     
-    fprintf(stderr,">>> repr=%d unrepr=%d sha256=%d compress=%d decompress=%d encrypt=%d decrypt=%d\n",
-                repr,unrepr,sha256,compress,decompress,encrypt,decrypt);
+    if ((encrypt || decrypt) && key == NULL) {
+        char *k = getpass("Key: ");
+        key = sdsnew(k);
+    }
+
+    // fprintf(stderr,">>> repr=%d unrepr=%d sha256=%d compress=%d decompress=%d encrypt=%d decrypt=%d key=%s\n",
+    //                     repr,unrepr,sha256,compress,decompress,encrypt,decrypt,key);
 
     if (n == 0) {
         data = sdsreadfile(f);
@@ -142,6 +147,30 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (encrypt) {
+        FILE *random;
+        if ((random = fopen("/dev/urandom","r")) == NULL) {
+            perror("Error opening /dev/urandom");
+            exit(1);
+        }
+        sds iv = sdsread(random,8);
+        if (iv == NULL || sdslen(iv) != 8) {
+            fprintf(stderr,"Error reading IV\n");
+            exit(1);
+        }
+        sds z = sdsencrypt(data,key,iv);
+        sdsfree(iv);
+        sdsfree(data);
+        data = z;
+    } 
+
+    if (decrypt) {
+        sds z = sdsdecrypt(data,key);
+        sdsfree(data);
+        data = z;
+    }
+
+
     if (decompress && memcmp(data,"lzf\0",4) == 0) {
         data = sdsrange(data,4,sdslen(data));
         sds z = sdsdecompress(data);
@@ -161,7 +190,7 @@ int main(int argc, char** argv) {
         write(1,data,sdslen(data));
     }
 
-    sdsfree(data);
-    sdsfree(key);
+    //sdsfree(data);
+    //sdsfree(key);
     exit(0);
 }
