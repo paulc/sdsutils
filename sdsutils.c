@@ -67,21 +67,24 @@ sds sdscompress(sds s) {
     unsigned int n = lzf_compress(s,sdslen(s),out,out_len);
     sds d = NULL;
     if (n > 0) {
-        d = sdsnewlen(out,n);
+        d = sdsnewlen("lzf\0",4);
+        d = sdscatlen(d,out,n);
     }
     zfree(out);
     return d;
 }
 
 sds sdsdecompress(sds s) {
-    unsigned int out_len = sdslen(s) * 10;
-    void *out = zmalloc(out_len);
-    unsigned int n = lzf_decompress(s,sdslen(s),out,out_len);
     sds d = NULL;
-    if (n > 0) {
-        d = sdsnewlen(out,n);
+    if (memcmp(s,"lzf\0",4) == 0) {
+        unsigned int out_len = sdslen(s) * 10;
+        void *out = zmalloc(out_len);
+        unsigned int n = lzf_decompress(s+4,sdslen(s)-4,out,out_len);
+        if (n > 0) {
+            d = sdsnewlen(out,n);
+        }
+        zfree(out);
     }
-    zfree(out);
     return d;
 }
 
@@ -326,4 +329,96 @@ void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix) {
     fputs(m,fp);
     fputs(suffix,fp);
     sdsfree(m);
+}
+
+sds sdsexec(char *cmd) {
+    FILE *fp = NULL;
+    sds buf;
+    if ((fp = popen(cmd,"r")) == NULL) {
+        return NULL;
+    }
+    buf = sdsreadfile(fp);
+    pclose(fp);
+    return buf;
+}
+
+int pipeWrite(int fd, sds data) {
+    FILE *f;
+    int i;
+    if ((f = fdopen(fd,"w")) == NULL) {
+        return -1;
+    }
+    for (i = 0; i < sdslen(data); i++) {
+        if (fputc(data[i],f) == EOF) {
+            return -1;
+        }
+    }
+    fclose(f);
+    return i;
+}
+
+sds pipeRead(int fd) {
+    FILE *f;
+    char c;
+    sds data = sdsempty();
+    if ((f = fdopen(fd,"r")) == NULL) {
+        return NULL;
+    }
+    while ((c = fgetc(f)) != EOF) {
+        data = sdscatlen(data,&c,1);
+    }
+    fclose(f);
+    return data;
+}
+
+sds sdspipe(char *cmd,sds input) {
+    int p_in[2],p_out[2];
+    pid_t pid;
+
+    if (pipe(p_in) != 0 || pipe(p_out) != 0) {
+        perror("Pipe failed");
+        return NULL;
+    }
+
+    pid = fork();
+
+    if (pid < 0) {
+        perror("Fork failed");
+        return NULL;
+    } else if (pid == 0) {
+        /* Child */
+        dup2(p_in[0],0);
+        dup2(p_out[1],1);
+        close(p_in[0]);
+        close(p_in[1]);
+        close(p_out[0]);
+        close(p_out[1]);
+        execl("/bin/sh","sh","-c",cmd,NULL);
+        perror("Exec failed");
+        exit(255);
+    } else {
+        /* Parent */
+        close(p_in[0]);
+        close(p_out[1]);
+
+        pid = fork();
+
+        if (pid < 0) {
+            perror("Fork failed");
+            return NULL;
+        } else if (pid == 0) {
+            /* Child */
+            close(p_out[0]);
+            pipeWrite(p_in[1],input);
+            close(p_in[1]);
+            exit(0);
+        } else {
+            /* Parent */
+            close(p_in[1]);
+            sds out = pipeRead(p_out[0]);
+            close(p_out[0]);
+            return out;
+        }
+    }
+    return NULL;
 }

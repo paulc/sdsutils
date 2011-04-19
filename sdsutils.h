@@ -30,5 +30,7 @@ sds sdsrepr(sds s);
 sds sdsunrepr(sds s);
 void sdsprintrepr(FILE *fp,char *prefix,sds s,char *suffix);
 void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix);
+sds sdsexec(char *cmd);
+sds sdspipe(char *cmd,sds input);
 
 #endif /* _SDSUTILS_H */
