@@ -5,25 +5,27 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "adlist.h"
 #include "sds.h"
 #include "sdsutils.h"
 
-#define USAGE "Usage: readfile [-f <file>|-e <cmd>] [-p <cmd>] [-n <count>] [-r|-u] [-c|-d] [-z|-Z] [-s] [-k <key>|-K <keyfile>]\n" \
+#define USAGE "Usage: readfile [-f <file>|-e <cmd>] [-o <file>] [-p <cmd>] [-n <count>] [-r|-u] [-c|-d] [-z|-Z] [-s] [-k <key>|-K <keyfile>]\n" \
               "       readfile [--long-options]\n" \
               "       readfile [-h|--help]\n" \
               "\n" \
               "       Read data from stdin & write to stdout (possibly transforming)\n"
 
 #define HELP  "           -f,--file <file>        : Read from <file> rather than stdin\n" \
+              "           -o,--out <file>         : Write to <file> rather than stdout\n" \
               "           -e,--exec <cmd>         : Read from <cmd> rather than stdin\n" \
-              "           -p,--pipe <cmd>         : Pipe input through <cmd>\n" \
+              "           -p,--pipe <cmd>         : Pipe input through <cmd> (can specify multiple)\n" \
               "           -n,--count <count>      : Read <count> bytes from stdin|file\n" \
               "           -r,--repr               : Quote output using sdsrepr\n" \
               "           -u,--unrepr             : Unquote input using sdsunrepr\n" \
               "           -c,--compress           : Compress output using lzf\n" \
               "           -d,--decompress         : Decompress input using lzf\n" \
-              "           -e,--encrypt            : Encrypt data\n" \
-              "           -d,--decrypt            : Decrypt data\n" \
+              "           -z,--encrypt            : Encrypt data\n" \
+              "           -Z,--decrypt            : Decrypt data\n" \
               "           -k,--key <key>          : Key (unsafe)\n" \
               "           -K,--keyfile <keyfile>  : Read key from file\n" \
               "           -s,--digest             : Return digest (SHA256) of input data\n" \
@@ -31,9 +33,10 @@
 
 int main(int argc, char** argv) {
 
-    FILE *f = stdin;
+    FILE *in = stdin;
+    FILE *out = stdout;
     int pipe = 0;
-    char *pipe_cmd = NULL;
+    list *pipe_cmd_list = NULL;
     int ch = 0;
     int repr = 0;
     int unrepr = 0;
@@ -49,6 +52,7 @@ int main(int argc, char** argv) {
 
     static struct option longopts[] = {
         { "file",       required_argument,  NULL, 'f' },
+        { "out",        required_argument,  NULL, 'o' },
         { "exec",       required_argument,  NULL, 'e' },
         { "pipe",       required_argument,  NULL, 'p' },
         { "count",      required_argument,  NULL, 'n' },
@@ -64,16 +68,22 @@ int main(int argc, char** argv) {
         { "help",       no_argument,        NULL, 'h' }
     };
 
-    while ((ch = getopt_long(argc, argv, "f:e:n:p:rucdzZk:K:sh", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "f:o:e:n:p:rucdzZk:K:sh", longopts, NULL)) != -1) {
         switch(ch) {
             case 'f':
-                if ((f = fopen(optarg,"r")) == NULL) {
+                if ((in = fopen(optarg,"r")) == NULL) {
+                    perror("Error opening file");
+                    exit(1);
+                }
+                break;
+            case 'o':
+                if ((out = fopen(optarg,"w")) == NULL) {
                     perror("Error opening file");
                     exit(1);
                 }
                 break;
             case 'e':
-                if ((f = popen(optarg,"r")) == NULL) {
+                if ((in = popen(optarg,"r")) == NULL) {
                     perror("Error executing command");
                     exit(1);
                 }
@@ -86,7 +96,10 @@ int main(int argc, char** argv) {
                 }
                 break;
             case 'p':
-                pipe_cmd = optarg;
+                if (pipe_cmd_list == NULL) {
+                    pipe_cmd_list = listCreate();
+                }
+                listAddNodeTail(pipe_cmd_list,optarg);
                 break;
             case 'r':
                 repr = 1;
@@ -141,9 +154,9 @@ int main(int argc, char** argv) {
     /* Read data */
 
     if (n == 0) {
-        data = sdsreadfile(f);
+        data = sdsreadfile(in);
     } else {
-        data = sdsread(f,n);
+        data = sdsread(in,n);
     }
 
     /* Input Filters */
@@ -170,14 +183,23 @@ int main(int argc, char** argv) {
 
     /* Pipe */
 
-    if (pipe_cmd) {
-        sds temp = sdspipe(pipe_cmd,data);
-        if (temp != NULL) {
-            sdsfree(data);
-            data = temp;
-        } else {
-            printf("Pipe failed\n");
-        }
+    if (pipe_cmd_list) {
+        listNode *node;
+        listIter *iter = listGetIterator(pipe_cmd_list,AL_START_HEAD);
+        while ((node = listNext(iter)) != NULL) {
+            sds temp = sdspipe((char *)listNodeValue(node),data);
+            sdsfree(temp);
+            /*
+            if (temp != NULL) {
+                sdsfree(data);
+                data = temp;
+            } else {
+                printf("Pipe failed\n");
+            }
+            */
+        } 
+        listReleaseIterator(iter);
+        listRelease(pipe_cmd_list);
     }
 
     /* Output Filters */
@@ -209,17 +231,17 @@ int main(int argc, char** argv) {
 
     if (sha256) {
         sds digest = sdssha256(data);
-        sdsprinthex(stdout,"SHA256: ",digest,"\n");
+        sdsprinthex(out,"SHA256: ",digest,"\n");
         sdsfree(digest);
     } else if (repr) {
-        sdsprintrepr(stdout,"",data,"");
+        sdsprintrepr(out,"",data,"");
     } else {
-        write(1,data,sdslen(data));
+        fwrite(data,1,sdslen(data),out);
     }
 
     /* Clean-ip */
 
-    (pipe == 0) ? fclose(f) : pclose(f);
+    (pipe == 0) ? fclose(in) : pclose(in);
     sdsfree(data);
     sdsfree(key);
     exit(0);
