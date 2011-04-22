@@ -246,6 +246,36 @@ sds sdshex(sds s) {
     return r;
 }
 
+static int hexchr(unsigned char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    } else if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    } else {
+        return -1;
+    }
+}
+
+sds sdsunhex(sds s) {
+    sds r = sdsempty();
+    int len = sdslen(s);
+    int i = 0;
+    unsigned char c;
+    while (len - i > 0) {
+        int x1 = hexchr(*(s+i));
+        int x2 = hexchr(*(s+i+1));
+        if (x1 == -1 || x2 == -1) {
+            break;
+        }
+        c = x1 * 16 + x2;
+        r = sdscatlen(r,&c,1);
+        i += 2;
+    }
+    return r;
+}
+
 sds sdsunrepr(sds s) {
     sds r = sdsempty();
     int len = sdslen(s);

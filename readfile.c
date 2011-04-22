@@ -22,6 +22,8 @@
               "           -n,--count <count>      : Read <count> bytes from stdin|file\n" \
               "           -r,--repr               : Quote output using sdsrepr\n" \
               "           -u,--unrepr             : Unquote input using sdsunrepr\n" \
+              "           -x,--hex                : Encode output as hex\n" \
+              "           -X,--unhex              : Decode input as hex\n" \
               "           -c,--compress           : Compress output using lzf\n" \
               "           -d,--decompress         : Decompress input using lzf\n" \
               "           -z,--encrypt            : Encrypt data\n" \
@@ -40,6 +42,8 @@ int main(int argc, char** argv) {
     int ch = 0;
     int repr = 0;
     int unrepr = 0;
+    int hex = 0;
+    int unhex = 0;
     int sha256 = 0;
     int compress = 0;
     int decompress = 0;
@@ -58,6 +62,8 @@ int main(int argc, char** argv) {
         { "count",      required_argument,  NULL, 'n' },
         { "repr",       no_argument,        NULL, 'r' },
         { "unrepr",     no_argument,        NULL, 'u' },
+        { "hex",        no_argument,        NULL, 'x' },
+        { "unhex",      no_argument,        NULL, 'X' },
         { "compress",   no_argument,        NULL, 'c' },
         { "decompress", no_argument,        NULL, 'd' },
         { "encrypt",    no_argument,        NULL, 'z' },
@@ -68,7 +74,7 @@ int main(int argc, char** argv) {
         { "help",       no_argument,        NULL, 'h' }
     };
 
-    while ((ch = getopt_long(argc, argv, "f:o:e:n:p:rucdzZk:K:sh", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "f:o:e:n:p:ruxXcdzZk:K:sh", longopts, NULL)) != -1) {
         switch(ch) {
             case 'f':
                 if ((in = fopen(optarg,"r")) == NULL) {
@@ -106,6 +112,12 @@ int main(int argc, char** argv) {
                 break;
             case 'u':
                 unrepr = 1;
+                break;
+            case 'x':
+                hex = 1;
+                break;
+            case 'X':
+                unhex = 1;
                 break;
             case 'c':
                 compress = 1;
@@ -167,6 +179,12 @@ int main(int argc, char** argv) {
         data = temp;
     }
 
+    if (unhex) {
+        sds temp = sdsunhex(data);
+        sdsfree(data);
+        data = temp;
+    }
+
     if (decrypt) {
         sds temp = sdsdecrypt(data,key);
         sdsfree(data);
@@ -188,7 +206,8 @@ int main(int argc, char** argv) {
         listIter *iter = listGetIterator(pipe_cmd_list,AL_START_HEAD);
         while ((node = listNext(iter)) != NULL) {
             sds temp = sdspipe((char *)listNodeValue(node),data);
-            sdsfree(temp);
+            sdsfree(data);
+            data = temp;
             /*
             if (temp != NULL) {
                 sdsfree(data);
@@ -235,6 +254,8 @@ int main(int argc, char** argv) {
         sdsfree(digest);
     } else if (repr) {
         sdsprintrepr(out,"",data,"");
+    } else if (hex) {
+        sdsprinthex(out,"",data,"\n");
     } else {
         fwrite(data,1,sdslen(data),out);
     }
