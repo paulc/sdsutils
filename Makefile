@@ -11,6 +11,9 @@ PROGS = int64 re readfile encrypt
 
 all : $(PROGS)
 
+split: split.o $(OBJ)
+	$(CC) -o split $(LDFLAGS) $(DEBUG) split.o $(OBJ)
+
 # Deps (from 'make dep')
 adlist.o: adlist.c adlist.h zmalloc.h
 blowfish.o: blowfish.c blowfish.h
@@ -21,7 +24,8 @@ lzf_d.o: lzf_d.c lzfP.h
 re.o: re.c sds.h sdsutils.h slre.h
 readfile.o: readfile.c adlist.h sds.h sdsutils.h slre.h
 sds.o: sds.c sds.h zmalloc.h
-sdsutils.o: sdsutils.c sdsutils.h sds.h slre.h blowfish.h lzf.h sha256.h zmalloc.h
+sdsutils.o: sdsutils.c sdsutils.h sds.h slre.h adlist.h blowfish.h lzf.h \
+  sha256.h zmalloc.h
 sha256.o: sha256.c sha256.h
 slre.o: slre.c slre.h
 zmalloc.o: zmalloc.c config.h

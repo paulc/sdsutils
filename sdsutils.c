@@ -1,15 +1,10 @@
 
-#include "sdsutils.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "blowfish.h"
-#include "lzf.h"
-#include "sds.h"
-#include "sha256.h"
-#include "slre.h"
-#include "zmalloc.h"
+
+#include "sdsutils.h"
 
 int char_count(char *s, char c) {
     int count = 0;
@@ -195,41 +190,32 @@ sds sdsreadline(FILE *fp,const char *prompt) {
     return line;
 }
 
-sds *sdsmatchre(sds s,struct slre *slre,int ncap,int *count) {
-    int slots = 5, elements = 0;
-    sds *matches = zmalloc(sizeof(sds)*slots);
+static void _sdsfree(void *p) {
+    sdsfree((sds) p);
+}
+
+list *sdsmatchre(sds s,struct slre *slre,int ncap) {
 	struct cap *cap = zcalloc(sizeof(struct cap) * ncap);
+    list *result = listCreate();
+    listSetFreeMethod(result,_sdsfree);
     if (slre_match(slre,s,sdslen(s),cap)) {
         for (int i=0; i < ncap; i++) {
             if (cap[i].len > 0) {
-                if (slots < elements+1) {
-                    slots *= 2;
-                    sds *newmatches = zrealloc(matches,sizeof(sds)*slots);
-                    matches = newmatches;
-                }
-                matches[elements++] = sdsnewlen(cap[i].ptr,cap[i].len);
+                listAddNodeTail(result,sdsnewlen(cap[i].ptr,cap[i].len));
             }
         }
     }
     zfree(cap);
-    *count = elements;
-    return matches;
+    return result;
 }
 
-sds *sdsmatch(sds s,char *re,int *count) {
+list *sdsmatch(sds s,char *re) {
 	struct slre slre;
 	if (slre_compile(&slre,re) != 1) {
         return NULL;
 	}
     int ncap = char_count(re,'(')+1;
-    return sdsmatchre(s,&slre,ncap,count);
-}
-
-void sdsfreematchres(sds* matches,int count) {
-    if (!matches) return;
-    while(count--)
-        sdsfree(matches[count]);
-    zfree(matches);
+    return sdsmatchre(s,&slre,ncap);
 }
 
 sds sdshex(sds s) {
@@ -396,6 +382,7 @@ sds pipeRead(int fd) {
     return data;
 }
 
+/* FIX: Check for leaks */
 sds sdspipe(char *cmd,sds input) {
     int p_in[2],p_out[2];
     pid_t pid;
@@ -447,3 +434,23 @@ sds sdspipe(char *cmd,sds input) {
     }
     return NULL;
 }
+
+/* FIX: Delim at start/end of line or null value doesnt work */
+list *sdssplit(sds s,sds delim) {
+    int len = sdslen(s);
+    int dlen = sdslen(delim);
+    int start = 0;
+    list *result = listCreate();
+    listSetFreeMethod(result,_sdsfree);
+    for (int i=0;i<len;i++) {
+        if (i - start > dlen) {
+            if (memcmp(delim,s+i-dlen,dlen) == 0) {
+                listAddNodeTail(result,sdsnewlen(s+start,i-dlen-start));
+                start = i;
+            }
+        }
+    }
+    listAddNodeTail(result,sdsnewlen(s+start,len-start));
+    return result;
+}
+

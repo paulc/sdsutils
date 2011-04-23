@@ -2,8 +2,13 @@
 #ifndef _SDSUTILS_H
 #define _SDSUTILS_H
 
+#include "adlist.h"
+#include "blowfish.h"
+#include "lzf.h"
 #include "sds.h"
+#include "sha256.h"
 #include "slre.h"
+#include "zmalloc.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -17,14 +22,13 @@ sds sdsread(FILE *fp,size_t nbyte);
 sds sdsreadfile(FILE *fp);
 sds sdsreaddelim(FILE *fp,void *delim,int len);
 sds sdsreadline(FILE *fp,const char *prompt);
-sds *sdsmatchre(sds s,struct slre *slre,int ncap,int *count);
-sds *sdsmatch(sds s,char *re,int *count);
+list *sdsmatchre(sds s,struct slre *slre,int ncap);
+list *sdsmatch(sds s,char *re);
 sds sdssha256(sds s);
 sds sdscompress(sds s);
 sds sdsdecompress(sds s);
 sds sdsencrypt(sds s,sds key,sds iv);
 sds sdsdecrypt(sds z,sds key);
-void sdsfreematchres(sds* matches,int count);
 sds sdshex(sds s);
 sds sdsunhex(sds s);
 sds sdsrepr(sds s);
@@ -33,5 +37,6 @@ void sdsprintrepr(FILE *fp,char *prefix,sds s,char *suffix);
 void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix);
 sds sdsexec(char *cmd);
 sds sdspipe(char *cmd,sds input);
+list *sdssplit(sds s,sds delim);
 
 #endif /* _SDSUTILS_H */

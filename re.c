@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "sds.h"
 #include "sdsutils.h"
 
 int main(int argc, char** argv) {
@@ -12,17 +11,22 @@ int main(int argc, char** argv) {
 	}
 	while (!feof(stdin)) {
 		sds line = sdsreadline(stdin,">> ");
-        int count = 0;
-        sds *matches = sdsmatch(line,argv[1],&count);
+        list *matches = sdsmatch(line,argv[1]);
+
         if (matches == NULL) {
             printf("Problem compiling regex: %s\n",argv[1]);
             exit(1);
         }
-        for (int i=0; i<count; i++) {
-            printf("Match %d: ",i);
-            sdsprintrepr(stdout,"",matches[i],"\n");
-        }
-        sdsfreematchres(matches,count);
+
+        listIter *iter = listGetIterator(matches,AL_START_HEAD);
+        listNode *node;
+
+        while ((node = listNext(iter)) != NULL) {
+            sdsprintrepr(stdout,"Match: ",(sds)listNodeValue(node),"\n");
+        } 
+
+        listReleaseIterator(iter);
+        listRelease(matches);
         sdsfree(line);
 	}
     exit(0);
