@@ -98,9 +98,9 @@ sds sdssha256(sds s) {
     return d;
 }
 
-#define Z_N_LEN 8
+#define Z_N_LEN 4
 #define Z_IV_LEN  8
-#define Z_HDR_LEN 16
+#define Z_HDR_LEN 12
 
 sds sdsencrypt(sds s,sds key,sds iv) {
     int pad = 0;
