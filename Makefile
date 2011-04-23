@@ -51,5 +51,5 @@ dep:
 	$(CC) -MM *.c
 
 clean:
-	rm -rf $(PROGS) $(LIB) *.o *~ $(PROGS)
+	rm -rf $(PROGS) $(LIB) *.o *~ 
 

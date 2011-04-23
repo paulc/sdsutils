@@ -138,40 +138,35 @@ sds sdsdecrypt(sds z,sds key) {
     return s;
 }
 
+#define READ_BUF 65536
+
 sds sdsread(FILE *fp,size_t nbyte) {
-    int n;
-    size_t count = 0;
-    char buf[1024];
+    size_t n = 0,count = 0;
+    char buf[READ_BUF];
     sds data = sdsempty();
     while (nbyte - count > 0) {
-        int nread = (nbyte - count) > 1024 ? 1024 : (nbyte - count);
-        n = read(fileno(fp),buf,nread);
-        if (n == -1) {
-            return NULL;
-        }
-        if (n == 0) {
+        int nread = (nbyte - count) > READ_BUF ? READ_BUF : (nbyte - count);
+        n = fread(buf,1,nread,fp);
+        data = sdscatlen(data,buf,n);
+        if (feof(fp)) {
             break;
         }
-        data = sdscatlen(data,buf,n);
         count += n;
     }
-    return data;
+    return ferror(fp) ? NULL : data;
 }
 
 sds sdsreadfile(FILE *fp) {
 	int n;
     char buf[1024];
     sds data = sdsempty();
-    while ((n = read(fileno(fp),buf,1024)) != 0) {
-        if (n == -1) {
-            return NULL;
-        }
+    while ((n = fread(buf,1,READ_BUF,fp)) > 0) { 
         data = sdscatlen(data,buf,n);
     }
-    return data;
+    return ferror(fp) ? NULL : data;
 }
 
-sds sdsreaddelim(FILE *fp,char *delim,int len) {
+sds sdsreaddelim(FILE *fp,void *delim,int len) {
     char c;
     int count = 0;
     sds line = sdsempty();

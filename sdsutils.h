@@ -15,7 +15,7 @@ int64_t sdsgetint(sds s,int len);
 sds sdscatint(sds s,int64_t num,int len);
 sds sdsread(FILE *fp,size_t nbyte);
 sds sdsreadfile(FILE *fp);
-sds sdsreaddelim(FILE *fp,char *delim,int len);
+sds sdsreaddelim(FILE *fp,void *delim,int len);
 sds sdsreadline(FILE *fp,const char *prompt);
 sds *sdsmatchre(sds s,struct slre *slre,int ncap,int *count);
 sds *sdsmatch(sds s,char *re,int *count);
