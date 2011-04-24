@@ -6,10 +6,10 @@ LDFLAGS =
 DEBUG ?= -g -rdynamic -ggdb
 
 OBJ = blowfish.o sds.o zmalloc.o sdsutils.o slre.o sha256.o lzf_c.o lzf_d.o adlist.o
-LIB = libsdsutil.a
+LIB = libutil.a
 PROGS = int64 re readfile encrypt split
 
-all : $(PROGS)
+all : $(PROGS) $(LIB)
 
 # Deps (from 'make dep')
 adlist.o: adlist.c adlist.h zmalloc.h

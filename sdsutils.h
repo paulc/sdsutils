@@ -2,6 +2,10 @@
 #ifndef _SDSUTILS_H
 #define _SDSUTILS_H
 
+#include <stdio.h>
+#include <stdint.h>
+#include <sys/types.h>
+
 #include "adlist.h"
 #include "blowfish.h"
 #include "lzf.h"
@@ -9,9 +13,6 @@
 #include "sha256.h"
 #include "slre.h"
 #include "zmalloc.h"
-
-#include <stdio.h>
-#include <stdint.h>
 
 int char_count(char *s, char c);
 int sdscount(sds s,char c);
