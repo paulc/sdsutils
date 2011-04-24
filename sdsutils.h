@@ -38,5 +38,11 @@ void sdsprinthex(FILE *fp,char *prefix,sds s,char *suffix);
 sds sdsexec(char *cmd);
 sds sdspipe(char *cmd,sds input);
 list *sdssplit(sds s,sds delim);
+sds listJoin(list *l,sds delim);
+list *listMap(list *l,void *(*f)(listNode *node),void (*free)(void *ptr));
+list *listMapWithState(list *l,void *(*f)(listNode *node,void *state),
+                               void (*free)(void *ptr),void *state);
+void listApply(list *l,void *(*f)(listNode *node));
+
 
 #endif /* _SDSUTILS_H */

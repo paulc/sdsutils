@@ -435,7 +435,6 @@ sds sdspipe(char *cmd,sds input) {
     return NULL;
 }
 
-/* FIX: Delim at start/end of line or null value doesnt work */
 list *sdssplit(sds s,sds delim) {
     int len = sdslen(s);
     int dlen = sdslen(delim);
@@ -443,14 +442,65 @@ list *sdssplit(sds s,sds delim) {
     list *result = listCreate();
     listSetFreeMethod(result,_sdsfree);
     for (int i=0;i<len;i++) {
-        if (i - start > dlen) {
-            if (memcmp(delim,s+i-dlen,dlen) == 0) {
-                listAddNodeTail(result,sdsnewlen(s+start,i-dlen-start));
-                start = i;
+        if (i + 1 - start >= dlen) {
+            if (memcmp(delim,s+i-dlen+1,dlen) == 0) {
+                result = listAddNodeTail(result,sdsnewlen(s+start,i-dlen-start+1));
+                start = i+1;
             }
         }
     }
-    listAddNodeTail(result,sdsnewlen(s+start,len-start));
+    result = listAddNodeTail(result,sdsnewlen(s+start,len-start));
     return result;
 }
+
+sds listJoin(list *l,sds delim) {
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    int i = 0;
+    sds result = sdsempty();
+    while ((node = listNext(iter)) != NULL) {
+        if (i++ > 0) {
+            result = sdscatlen(result,delim,sdslen(delim));
+        }
+        result = sdscatlen(result,(sds)listNodeValue(node),sdslen((sds)listNodeValue(node)));
+    } 
+    listReleaseIterator(iter);
+    return result;
+}
+
+list *listMap(list *l,void *(*f)(listNode *node),void (*free)(void *ptr)) {
+    list *result = listCreate();
+    listSetFreeMethod(result,free);
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    while ((node = listNext(iter)) != NULL) {
+        result = listAddNodeTail(result,f(node));
+    } 
+    listReleaseIterator(iter);
+    return result;
+}
+
+list *listMapWithState(list *l,void *(*f)(listNode *node,void *state),
+                        void (*free)(void *ptr),void *state) {
+    list *result = listCreate();
+    listSetFreeMethod(result,free);
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    while ((node = listNext(iter)) != NULL) {
+        result = listAddNodeTail(result,f(node,state));
+    } 
+    listReleaseIterator(iter);
+    return result;
+}
+
+void listApply(list *l,void *(*f)(listNode *node)) {
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    while ((node = listNext(iter)) != NULL) {
+        f(node);
+    } 
+    listReleaseIterator(iter);
+}
+
+
 
