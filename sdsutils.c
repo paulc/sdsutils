@@ -153,7 +153,7 @@ sds sdsread(FILE *fp,size_t nbyte) {
 
 sds sdsreadfile(FILE *fp) {
 	int n;
-    char buf[1024];
+    char buf[READ_BUF];
     sds data = sdsempty();
     while ((n = fread(buf,1,READ_BUF,fp)) > 0) { 
         data = sdscatlen(data,buf,n);
