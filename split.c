@@ -5,16 +5,16 @@
 #include "sdsutils.h"
 
 void _sdsfree(void *ptr) {
-    printf("--> Free: %p %s\n",ptr, (char *)ptr);
+    //printf("--> Free: %p %s\n",ptr, (char *)ptr);
     sdsfree((sds) ptr);
 }
 
-void *hexify(listNode *node,void *state) {
-    sds in = (sds)listNodeValue(node);
-    sds result = sdshex(in);
-    *(int *)state += 1;
-    printf("Map: %s -> %s\n", (char *)in, (char *)result);
-    return result;
+void *hexify(void *data) {
+    return sdshex((sds)data);
+}
+
+void reducer(void *acc, void *data) {
+    *(int *)acc += sdslen(data);
 }
 
 int main(int argc, char** argv) {
@@ -36,22 +36,36 @@ int main(int argc, char** argv) {
         list *matches = sdssplit(line,split_delim);
         sdsfree(line);
 
+        // Iterate through list
         listIter *iter = listGetIterator(matches,AL_START_HEAD);
         listNode *node;
-
         while ((node = listNext(iter)) != NULL) {
-            sdsprintrepr(stdout,">>",(sds)listNodeValue(node),"<<\n");
+            sdsprintrepr(stdout,"Item >>",(sds)listNodeValue(node),"<<\n");
         } 
-
         listReleaseIterator(iter);
 
-        int count=0;
-        list *map = listMapWithState(matches,hexify,_sdsfree,(void *)&count);
-        sds join = listJoin(map,join_delim);
+        // Join 
+        sds join = listJoin(matches,join_delim);
+        sdsprintrepr(stdout,"Orig >",join,"< \n");
+        sdsfree(join);
+
+        // Map
+        list *map = listMap(matches,hexify,_sdsfree);
+        join = listJoin(map,join_delim);
         sdsprintrepr(stdout,"Map >",join,"< \n");
-        printf("Count=%d\n",count);
         listRelease(map);
         sdsfree(join);
+
+        // Count characters (reduce)
+        int acc = 0;
+        listReduce(matches,&acc,reducer);
+        printf("Reduce: %d\n",acc);
+        
+        // Ranges (dont worry about clean up from anon list/sds
+        sdsprintrepr(stdout,"Range (0,0) : ",listJoin(listRange(matches,0,0),sdsnew(",")),"\n");
+        sdsprintrepr(stdout,"Range (1,3) : ",listJoin(listRange(matches,1,3),sdsnew(",")),"\n");
+        sdsprintrepr(stdout,"Range (1,-1) : ",listJoin(listRange(matches,1,-1),sdsnew(",")),"\n");
+        sdsprintrepr(stdout,"Range (2,-2) : ",listJoin(listRange(matches,2,-2),sdsnew(",")),"\n");
 
         listRelease(matches);
 	}

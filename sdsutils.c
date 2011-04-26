@@ -468,38 +468,69 @@ sds listJoin(list *l,sds delim) {
     return result;
 }
 
-list *listMap(list *l,void *(*f)(listNode *node),void (*free)(void *ptr)) {
+list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr)) {
     list *result = listCreate();
     listSetFreeMethod(result,free);
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     while ((node = listNext(iter)) != NULL) {
-        result = listAddNodeTail(result,f(node));
+        result = listAddNodeTail(result,f(listNodeValue(node)));
     } 
     listReleaseIterator(iter);
     return result;
 }
 
-list *listMapWithState(list *l,void *(*f)(listNode *node,void *state),
+list *listMapWithState(list *l,void *(*f)(void *data,void *state),
                         void (*free)(void *ptr),void *state) {
     list *result = listCreate();
     listSetFreeMethod(result,free);
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     while ((node = listNext(iter)) != NULL) {
-        result = listAddNodeTail(result,f(node,state));
+        result = listAddNodeTail(result,f(listNodeValue(node),state));
     } 
     listReleaseIterator(iter);
     return result;
 }
 
-void listApply(list *l,void *(*f)(listNode *node)) {
+void listApply(list *l,void *(*f)(void *data)) {
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     while ((node = listNext(iter)) != NULL) {
-        f(node);
+        f(listNodeValue(node));
     } 
     listReleaseIterator(iter);
+}
+
+void listReduce(list *l,void *init,void (*f)(void *acc,void *val)) {
+    listNode *node;
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    while ((node = listNext(iter)) != NULL) {
+        f(init,listNodeValue(node));
+    } 
+    listReleaseIterator(iter);
+}
+
+list *listRange(list *l,int start,int end) {
+    /* 
+     Note: this returns a 'view' of the items in the initial list (items are
+     not duplicated) 
+    */
+    list *result = listCreate();
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    int i = 0;
+    if (end <= 0) {
+        end = listLength(l) + end;
+    }
+    while ((node = listNext(iter)) != NULL) {
+        if (i >= start && i < end) {
+            result = listAddNodeTail(result,sdsdup((sds)listNodeValue(node)));
+        }
+        i++;
+    } 
+    listReleaseIterator(iter);
+    return result;
 }
 
 
