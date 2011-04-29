@@ -109,7 +109,7 @@ sds sdsencrypt(sds s,sds key,sds iv) {
     z = sdscatlen(z,iv,Z_IV_LEN);
     z = sdscatlen(z,s,sdslen(s));
     while (((sdslen(z)-Z_HDR_LEN) % 8) != 0) {
-        sdscatlen(z,"\x00",1);
+        z = sdscatlen(z,"\x00",1);
         pad++;
     }
     blf_cbc_encrypt(&c,(u_int8_t *)iv,(u_int8_t *)z+Z_HDR_LEN,sdslen(s)+pad);
@@ -121,6 +121,9 @@ sds sdsdecrypt(sds z,sds key) {
         return NULL;
     }
     int64_t len = sdsgetint(z,Z_N_LEN);
+    if (len > sdslen(z) - Z_HDR_LEN) {
+        return NULL;
+    }
     sds iv = sdsnewlen(z+Z_N_LEN,Z_IV_LEN);
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
@@ -248,7 +251,7 @@ sds sdsunhex(sds s) {
         int x1 = hexchr(*(s+i));
         int x2 = hexchr(*(s+i+1));
         if (x1 == -1 || x2 == -1) {
-            break;
+            return NULL;
         }
         c = x1 * 16 + x2;
         r = sdscatlen(r,&c,1);

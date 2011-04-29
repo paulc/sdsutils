@@ -191,13 +191,19 @@ int main(int argc, char** argv) {
     }
 
     if (unhex) {
-        temp = sdsunhex(data);
+        if ((temp = sdsunhex(data)) == NULL) {
+            fprintf(stderr,"Error converting from hex\n");
+            exit(-1);
+        }
         sdsfree(data);
         data = temp;
     }
 
     if (decrypt) {
-        temp = sdsdecrypt(data,key);
+        if ((temp = sdsdecrypt(data,key)) == NULL) {
+            fprintf(stderr,"Error decrypting data\n");
+            exit(-1);
+        }
         sdsfree(data);
         data = temp;
     }
