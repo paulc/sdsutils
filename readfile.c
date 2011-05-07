@@ -75,7 +75,8 @@ int main(int argc, char** argv) {
         { "key",        required_argument,  NULL, 'k' },
         { "keyfile",    required_argument,  NULL, 'K' },
         { "digest",     no_argument,        NULL, 's' },
-        { "help",       no_argument,        NULL, 'h' }
+        { "help",       no_argument,        NULL, 'h' },
+        { NULL,         0,                  NULL, 0 }
     };
 
     while ((ch = getopt_long(argc, argv, "f:o:e:n:l:p:ruxXcdzZk:K:sh", longopts, NULL)) != -1) {

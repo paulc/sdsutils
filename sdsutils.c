@@ -57,6 +57,7 @@ sds sdscatint(sds s,int64_t num, int len) {
 }
 
 sds sdscompress(sds s) {
+    if (s == NULL) return NULL;
     unsigned int out_len = sdslen(s);
     void *out = zmalloc(out_len);
     unsigned int n = lzf_compress(s,sdslen(s),out,out_len);
@@ -70,6 +71,7 @@ sds sdscompress(sds s) {
 }
 
 sds sdsdecompress(sds s) {
+    if (s == NULL) return NULL;
     sds d = NULL;
     if (memcmp(s,"lzf\0",4) == 0) {
         unsigned int out_len = sdslen(s) * 10;
@@ -84,6 +86,7 @@ sds sdsdecompress(sds s) {
 }
 
 sds sdssha256(sds s) {
+    if (s == NULL) return NULL;
     context_sha256_t c;
     uint8_t digest[32];
     sha256_starts(&c);
@@ -98,6 +101,7 @@ sds sdssha256(sds s) {
 #define Z_HDR_LEN 12
 
 sds sdsencrypt(sds s,sds key,sds iv) {
+    if (s == NULL) return NULL;
     int pad = 0;
     blf_ctx c;
     blf_key(&c,(u_int8_t *)key,sdslen(key));
@@ -117,7 +121,7 @@ sds sdsencrypt(sds s,sds key,sds iv) {
 }
 
 sds sdsdecrypt(sds z,sds key) {
-    if (sdslen(z) < Z_HDR_LEN) {
+    if (z == NULL || sdslen(z) < Z_HDR_LEN) {
         return NULL;
     }
     int64_t len = sdsgetint(z,Z_N_LEN);
@@ -198,6 +202,7 @@ static void _sdsfree(void *p) {
 }
 
 list *sdsmatchre(sds s,struct slre *slre,int ncap) {
+    if (s == NULL) return NULL;
 	struct cap *cap = zcalloc(sizeof(struct cap) * ncap);
     list *result = listCreate();
     listSetFreeMethod(result,_sdsfree);
@@ -213,6 +218,7 @@ list *sdsmatchre(sds s,struct slre *slre,int ncap) {
 }
 
 list *sdsmatch(sds s,char *re) {
+    if (s == NULL) return NULL;
 	struct slre slre;
 	if (slre_compile(&slre,re) != 1) {
         return NULL;
@@ -222,6 +228,7 @@ list *sdsmatch(sds s,char *re) {
 }
 
 sds sdshex(sds s) {
+    if (s == NULL) return NULL;
     sds r = sdsempty();
     int len = sdslen(s);
     while(len--) {
@@ -243,6 +250,7 @@ static int hexchr(unsigned char c) {
 }
 
 sds sdsunhex(sds s) {
+    if (s == NULL) return NULL;
     sds r = sdsempty();
     int len = sdslen(s);
     int i = 0;
@@ -261,6 +269,7 @@ sds sdsunhex(sds s) {
 }
 
 sds sdsunrepr(sds s) {
+    if (s == NULL) return NULL;
     sds r = sdsempty();
     int len = sdslen(s);
     unsigned char c;
@@ -304,6 +313,7 @@ sds sdsunrepr(sds s) {
 }
 
 sds sdsrepr(sds s) {
+    if (s == NULL) return NULL;
     sds r = sdsempty();
     int len = sdslen(s);
     while(len--) {
@@ -439,6 +449,7 @@ sds sdspipe(char *cmd,sds input) {
 }
 
 list *sdssplit(sds s,sds delim) {
+    if (s == NULL) return NULL;
     int len = sdslen(s);
     int dlen = sdslen(delim);
     int start = 0;
@@ -457,6 +468,7 @@ list *sdssplit(sds s,sds delim) {
 }
 
 sds listJoin(list *l,sds delim) {
+    if (l == NULL) return NULL;
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     int i = 0;
@@ -472,6 +484,7 @@ sds listJoin(list *l,sds delim) {
 }
 
 list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr)) {
+    if (l == NULL) return NULL;
     list *result = listCreate();
     listSetFreeMethod(result,free);
     listIter *iter = listGetIterator(l,AL_START_HEAD);
@@ -485,6 +498,7 @@ list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr)) {
 
 list *listMapWithState(list *l,void *(*f)(void *data,void *state),
                         void (*free)(void *ptr),void *state) {
+    if (l == NULL) return NULL;
     list *result = listCreate();
     listSetFreeMethod(result,free);
     listIter *iter = listGetIterator(l,AL_START_HEAD);
@@ -519,6 +533,7 @@ list *listRange(list *l,int start,int end) {
      Note: this returns a 'view' of the items in the initial list (items are
      not duplicated) 
     */
+    if (l == NULL) return NULL;
     list *result = listCreate();
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
