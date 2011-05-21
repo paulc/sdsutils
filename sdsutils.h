@@ -40,12 +40,13 @@ sds sdsexec(char *cmd);
 sds sdspipe(char *cmd,sds input);
 list *sdssplit(sds s,sds delim);
 sds listJoin(list *l,sds delim);
-list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr));
-list *listMapWithState(list *l,void *(*f)(void *data,void *state),
-                               void (*free)(void *ptr),void *state);
+list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr),void *(*dup)(void *));
 void listApply(list *l,void *(*f)(void *data));
 void listReduce(list *l,void *init,void (*f)(void *acc,void *val));
 list *listRange(list *l,int start,int end);
+list *listRangeDup(list *l,int start,int end);
+list *listFilter(list *l,int (*f)(void *data));
+list *listFilterDup(list *l,int (*f)(void *data));
 
 
 #endif /* _SDSUTILS_H */

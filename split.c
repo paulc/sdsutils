@@ -4,17 +4,22 @@
 
 #include "sdsutils.h"
 
-void _sdsfree(void *ptr) {
-    //printf("--> Free: %p %s\n",ptr, (char *)ptr);
-    sdsfree((sds) ptr);
-}
-
 void *hexify(void *data) {
     return sdshex((sds)data);
 }
 
 void reducer(void *acc, void *data) {
     *(int *)acc += sdslen(data);
+}
+
+int filter_lt5(void *data) {
+    int n = (int) strtol((const char *)data,NULL,10);
+    return n < 5;
+}
+
+int filter_gt5(void *data) {
+    int n = (int) strtol((const char *)data,NULL,10);
+    return n > 5;
 }
 
 int main(int argc, char** argv) {
@@ -32,6 +37,7 @@ int main(int argc, char** argv) {
 
 
 	while (!feof(stdin)) {
+
 		sds line = sdsreadline(stdin,"Line: ");
         list *matches = sdssplit(line,split_delim);
         sdsfree(line);
@@ -50,7 +56,7 @@ int main(int argc, char** argv) {
         sdsfree(join);
 
         // Map
-        list *map = listMap(matches,hexify,_sdsfree);
+        list *map = listMap(matches,hexify,(void (*)(void *))sdsfree,(void *(*)(void *))sdsdup);
         join = listJoin(map,join_delim);
         sdsprintrepr(stdout,"Map >",join,"< \n");
         listRelease(map);
@@ -61,11 +67,60 @@ int main(int argc, char** argv) {
         listReduce(matches,&acc,reducer);
         printf("Reduce: %d\n",acc);
         
-        // Ranges (dont worry about clean up from anon list/sds
-        sdsprintrepr(stdout,"Range (0,0) : ",listJoin(listRange(matches,0,0),sdsnew(",")),"\n");
-        sdsprintrepr(stdout,"Range (1,3) : ",listJoin(listRange(matches,1,3),sdsnew(",")),"\n");
-        sdsprintrepr(stdout,"Range (1,-1) : ",listJoin(listRange(matches,1,-1),sdsnew(",")),"\n");
-        sdsprintrepr(stdout,"Range (2,-2) : ",listJoin(listRange(matches,2,-2),sdsnew(",")),"\n");
+        // Filter
+        list *filtered;
+        filtered = listFilter(matches,filter_gt5);
+        join = listJoin(filtered,join_delim);
+        sdsprintrepr(stdout,"Filtered (>5) : ",join,"\n");
+        listRelease(filtered);
+        sdsfree(join);
+
+        filtered = listFilterDup(matches,filter_lt5);
+        join = listJoin(filtered,join_delim);
+        sdsprintrepr(stdout,"Filtered (<5) : ",join,"\n");
+        listRelease(filtered);
+        sdsfree(join);
+
+        // Ranges 
+        list *range;
+
+        range = listRange(matches,0,0);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"Range (0,0) : ",join,"\n");
+        listRelease(range);
+        sdsfree(join);
+
+        range = listRange(matches,1,3);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"Range (1,3) : ",join,"\n");
+        listRelease(range);
+        sdsfree(join);
+
+        range = listRangeDup(matches,1,-1);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"Range (1,-1) : ",join,"\n");
+        listRelease(range);
+        sdsfree(join);
+
+        range = listRangeDup(matches,2,-2);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"Range (2,-2) : ",join,"\n");
+        listRelease(range);
+        sdsfree(join);
+
+        map = listMap(matches,hexify,(void (*)(void *))sdsfree,(void *(*)(void *))sdsdup);
+        range = listRangeDup(map,2,-2);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"Mapped Range (2,-2) : ",join,"\n");
+        listRelease(range);
+        sdsfree(join);
+        listRelease(map);
+
+        range = listRange(NULL,0,0);
+        join = listJoin(range,join_delim);
+        sdsprintrepr(stdout,"NULL : ",join,"\n");
+        //listRelease(range);
+        //sdsfree(join);
 
         listRelease(matches);
 	}

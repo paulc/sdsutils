@@ -197,15 +197,12 @@ sds sdsreadline(FILE *fp,const char *prompt) {
     return line;
 }
 
-static void _sdsfree(void *p) {
-    sdsfree((sds) p);
-}
-
 list *sdsmatchre(sds s,struct slre *slre,int ncap) {
     if (s == NULL) return NULL;
 	struct cap *cap = zcalloc(sizeof(struct cap) * ncap);
     list *result = listCreate();
-    listSetFreeMethod(result,_sdsfree);
+    listSetFreeMethod(result,(void (*)(void *))sdsfree);
+    listSetDupMethod(result,(void *(*)(void *))sdsdup);
     if (slre_match(slre,s,sdslen(s),cap)) {
         for (int i=0; i < ncap; i++) {
             if (cap[i].len > 0) {
@@ -454,7 +451,8 @@ list *sdssplit(sds s,sds delim) {
     int dlen = sdslen(delim);
     int start = 0;
     list *result = listCreate();
-    listSetFreeMethod(result,_sdsfree);
+    listSetFreeMethod(result,(void (*)(void *))sdsfree);
+    listSetDupMethod(result,(void *(*)(void *))sdsdup);
     for (int i=0;i<len;i++) {
         if (i + 1 - start >= dlen) {
             if (memcmp(delim,s+i-dlen+1,dlen) == 0) {
@@ -483,28 +481,15 @@ sds listJoin(list *l,sds delim) {
     return result;
 }
 
-list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr)) {
+list *listMap(list *l,void *(*f)(void *data),void (*free)(void *ptr),void *(*dup)(void *ptr)) {
     if (l == NULL) return NULL;
     list *result = listCreate();
     listSetFreeMethod(result,free);
+    listSetDupMethod(result,dup);
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     while ((node = listNext(iter)) != NULL) {
         result = listAddNodeTail(result,f(listNodeValue(node)));
-    } 
-    listReleaseIterator(iter);
-    return result;
-}
-
-list *listMapWithState(list *l,void *(*f)(void *data,void *state),
-                        void (*free)(void *ptr),void *state) {
-    if (l == NULL) return NULL;
-    list *result = listCreate();
-    listSetFreeMethod(result,free);
-    listIter *iter = listGetIterator(l,AL_START_HEAD);
-    listNode *node;
-    while ((node = listNext(iter)) != NULL) {
-        result = listAddNodeTail(result,f(listNodeValue(node),state));
     } 
     listReleaseIterator(iter);
     return result;
@@ -528,13 +513,13 @@ void listReduce(list *l,void *init,void (*f)(void *acc,void *val)) {
     listReleaseIterator(iter);
 }
 
-list *listRange(list *l,int start,int end) {
-    /* 
-     Note: this returns a 'view' of the items in the initial list (items are
-     not duplicated) 
-    */
+static list *_listRange(list *l,int start,int end, int dup) {
     if (l == NULL) return NULL;
     list *result = listCreate();
+    if (dup && listGetDupMethod(l)) {
+        listSetFreeMethod(result,listGetFree(l));
+    }
+    listSetDupMethod(result,listGetDupMethod(l));
     listIter *iter = listGetIterator(l,AL_START_HEAD);
     listNode *node;
     int i = 0;
@@ -543,7 +528,11 @@ list *listRange(list *l,int start,int end) {
     }
     while ((node = listNext(iter)) != NULL) {
         if (i >= start && i < end) {
-            result = listAddNodeTail(result,sdsdup((sds)listNodeValue(node)));
+            if (dup && listGetDupMethod(l)) {
+                result = listAddNodeTail(result,listGetDupMethod(l)(listNodeValue(node)));
+            } else {
+                result = listAddNodeTail(result,listNodeValue(node));
+            }
         }
         i++;
     } 
@@ -551,5 +540,41 @@ list *listRange(list *l,int start,int end) {
     return result;
 }
 
+list *listRange(list *l,int start,int end) {
+    return _listRange(l,start,end,0);
+}
 
+list *listRangeDup(list *l,int start,int end) {
+    return _listRange(l,start,end,1);
+}
+
+static list *_listFilter(list *l,int (*f)(void *data), int dup) {
+    if (l == NULL) return NULL;
+    list *result = listCreate();
+    if (dup && listGetDupMethod(l)) {
+        listSetFreeMethod(result,listGetFree(l));
+    }
+    listSetDupMethod(result,listGetDupMethod(l));
+    listIter *iter = listGetIterator(l,AL_START_HEAD);
+    listNode *node;
+    while ((node = listNext(iter)) != NULL) {
+        if (f(listNodeValue(node))) {
+            if (dup && listGetDupMethod(l)) {
+                result = listAddNodeTail(result,listGetDupMethod(l)(listNodeValue(node)));
+            } else {
+                result = listAddNodeTail(result,listNodeValue(node));
+            }
+        }
+    } 
+    listReleaseIterator(iter);
+    return result;
+}
+
+list *listFilter(list *l,int (*f)(void *data)) {
+    return _listFilter(l,f,0);
+}
+
+list *listFilterDup(list *l,int (*f)(void *data)) {
+    return _listFilter(l,f,1);
+}
 
