@@ -1,0 +1,1 @@
+Collection of C utils based on Redis SDSlib string library. Includes basic file reading, regex searching (using SLRE), and encryption (using Blowfish)
