@@ -2,7 +2,7 @@ Collection of C utils based on the excellent Redis SDSlib string library
 (https://github.com/antirez/redis).
 
 This is intended to be used in standalone C programs and has no dependencies
-other than libc. This is mostly for the benefit of peopel who dislike dynamic
+other than libc. This is mostly for the benefit of people who dislike dynamic
 library depenencies.
 
 The library supports the normal SDSlib functions and also adds a number of
